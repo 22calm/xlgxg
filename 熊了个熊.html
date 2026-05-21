@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>熊了个熊</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#8B5A2B',
+            secondary: '#D2B48C',
+            accent: '#FF6B6B',
+            background: '#FFF8E7',
+            card: '#FFFFFF',
+          },
+          fontFamily: {
+            sans: ['Arial', 'sans-serif'],
+          },
+          animation: {
+            'bounce-short': 'bounce 0.5s ease-in-out',
+            'pulse-fast': 'pulse 1s infinite',
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .card-shadow {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .card-hover {
+        transition: all 0.2s ease;
+      }
+      .card-hover:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+      }
+      .card-active {
+        transform: scale(0.95);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .grid-area {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        grid-template-rows: repeat(6, 1fr);
+        gap: 8px;
+      }
+      .stack-area {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        min-height: 100px;
+      }
+      .card {
+        width: 60px;
+        height: 60px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      }
+      .card img {
+        width: 50px;
+        height: 50px;
+        object-fit: contain;
+      }
+      .success-animation {
+        animation: success-pulse 1s ease-in-out;
+      }
+      @keyframes success-pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+      }
+    }
+  </style>
+</head>
+<body class="bg-background min-h-screen flex flex-col items-center justify-start pt-8 pb-16 px-4">
+  <!-- 游戏标题 -->
+  <div class="flex items-center mb-6">
+    <img src="https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/f9972251d43548e3834176a2173db3bc~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941236&x-signature=IBLo4TbqhbxVocg3ZpNmUuWNq4U%3D" alt="游戏Logo" class="w-16 h-16 mr-3">
+    <h1 class="text-4xl font-bold text-primary">熊了个熊</h1>
+  </div>
+  
+  <!-- 游戏说明 -->
+  <div class="bg-white rounded-lg p-4 mb-6 w-full max-w-md text-center shadow-md">
+    <p class="text-gray-700">点击卡片，将相同的小熊图案放入下方槽位，三个相同即可消除！</p>
+  </div>
+  
+  <!-- 游戏区域 -->
+  <div class="w-full max-w-2xl">
+    <!-- 游戏网格 -->
+    <div id="game-grid" class="grid-area bg-white rounded-xl p-6 mb-6 shadow-lg">
+      <!-- 卡片将通过JS动态生成 -->
+    </div>
+    
+    <!-- 收集槽 -->
+    <div id="collection-slot" class="stack-area bg-secondary rounded-xl p-4 mb-6 min-h-[120px] shadow-md">
+      <!-- 收集的卡片将显示在这里 -->
+    </div>
+    
+    <!-- 游戏信息 -->
+    <div class="flex justify-between items-center mb-6">
+      <div class="bg-white rounded-lg px-4 py-2 shadow-md">
+        <span class="text-gray-700 font-bold">剩余时间: </span>
+        <span id="timer" class="text-primary font-bold">60s</span>
+      </div>
+      <div class="bg-white rounded-lg px-4 py-2 shadow-md">
+        <span class="text-gray-700 font-bold">分数: </span>
+        <span id="score" class="text-primary font-bold">0</span>
+      </div>
+    </div>
+    
+    <!-- 游戏按钮 -->
+    <div class="flex justify-center space-x-4">
+      <button id="restart-btn" class="bg-primary hover:bg-opacity-90 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-all duration-300 flex items-center">
+        <i class="fa fa-refresh mr-2"></i> 重新开始
+      </button>
+      <button id="hint-btn" class="bg-accent hover:bg-opacity-90 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-all duration-300 flex items-center">
+        <i class="fa fa-lightbulb-o mr-2"></i> 提示
+      </button>
+    </div>
+  </div>
+  
+  <!-- 游戏结束弹窗 -->
+  <div id="game-over-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl transform transition-all">
+      <div class="text-center">
+        <img id="game-over-icon" src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/4e639a6dafe946608935584ab599fc7a~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941236&x-signature=qDdzSHM8F49%2Fq5UNopJe6%2FmTXFs%3D" alt="游戏结束" class="w-24 h-24 mx-auto mb-4">
+        <h2 id="game-over-title" class="text-3xl font-bold text-primary mb-2">游戏结束</h2>
+        <p id="game-over-message" class="text-gray-600 mb-6">时间到！再试一次吧！</p>
+        <p id="final-score" class="text-xl font-bold text-gray-800 mb-6">最终得分: <span>0</span></p>
+        <div class="flex justify-center space-x-4">
+          <button id="play-again-btn" class="bg-primary hover:bg-opacity-90 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-all duration-300">
+            再玩一次
+          </button>
+          <button id="share-btn" class="bg-accent hover:bg-opacity-90 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-all duration-300">
+            分享成绩
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 通关弹窗 -->
+  <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl transform transition-all success-animation">
+      <div class="text-center">
+        <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/05ffcbe4e975438ea1c246b679ce36a7~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941236&x-signature=m6Q7MFZ81TzGxPeqlnARMt3DTqk%3D" alt="恭喜通关" class="w-24 h-24 mx-auto mb-4">
+        <h2 class="text-3xl font-bold text-primary mb-2">恭喜通关！</h2>
+        <p class="text-2xl font-bold text-accent mb-6">熊安青真棒！</p>
+        <p id="success-score" class="text-xl font-bold text-gray-800 mb-6">最终得分: <span>0</span></p>
+        <div class="flex justify-center space-x-4">
+          <button id="play-again-success-btn" class="bg-primary hover:bg-opacity-90 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-all duration-300">
+            再玩一次
+          </button>
+          <button id="share-success-btn" class="bg-accent hover:bg-opacity-90 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-all duration-300">
+            分享成绩
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 游戏配置
+    const gameConfig = {
+      gridSize: 6, // 6x6网格
+      cardTypes: 10, // 10种不同的卡片
+      cardsPerType: 3, // 每种卡片3张
+      collectionLimit: 7, // 收集槽最多7张卡片
+      timeLimit: 300, // 300秒(5分钟)时间限制
+      hintCooldown: 5, // 提示冷却时间5秒
+    };
+    
+    // 游戏状态
+    let gameState = {
+      cards: [], // 游戏卡片
+      collection: [], // 收集槽中的卡片
+      score: 0, // 分数
+      timeLeft: gameConfig.timeLimit, // 剩余时间
+      isGameOver: false, // 游戏是否结束
+      timer: null, // 计时器
+      lastHintTime: 0, // 上次提示时间
+    };
+    
+    // 卡片图片
+    const cardImages = [
+      'https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/f9972251d43548e3834176a2173db3bc~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941236&x-signature=IBLo4TbqhbxVocg3ZpNmUuWNq4U%3D',
+      'https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/05ffcbe4e975438ea1c246b679ce36a7~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941236&x-signature=m6Q7MFZ81TzGxPeqlnARMt3DTqk%3D',
+      'https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/9a85fca3f7594c76ad16463efc2c343f~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941238&x-signature=Y3gXOCQZ%2FbEKaJWHkU6TygLACiI%3D',
+      'https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/4e639a6dafe946608935584ab599fc7a~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941236&x-signature=qDdzSHM8F49%2Fq5UNopJe6%2FmTXFs%3D',
+      'https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/f5e7092dcdc44b03bc1726ddc05406ce~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941265&x-signature=pVbceOK2Z0pHV5OknIImcSjY%2FRg%3D',
+      'https://p11-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/1949028d80734fad9c3ea5ffa30452bc~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941266&x-signature=20IYLtdgAG8YIgPw0hKWIMkO3bQ%3D',
+      'https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/166a5233d8554c47a220f955b79768bb~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941266&x-signature=IrDdBuYSuo1HmPcTJFzUjXyVK2U%3D',
+      'https://p6-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/855192e430a745babd239cc8aa2c3c73~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941264&x-signature=Q8cDLY%2F2bh%2FSOcIreL9qMqwX15I%3D',
+      'https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/05ffcbe4e975438ea1c246b679ce36a7~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941236&x-signature=m6Q7MFZ81TzGxPeqlnARMt3DTqk%3D',
+      'https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/4e639a6dafe946608935584ab599fc7a~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=20260521154012C71C33FADEE00034629D&rrcfp=f06b921b&x-expires=1781941236&x-signature=qDdzSHM8F49%2Fq5UNopJe6%2FmTXFs%3D',
+    ];
+    
+    // DOM元素
+    const gameGrid = document.getElementById('game-grid');
+    const collectionSlot = document.getElementById('collection-slot');
+    const scoreDisplay = document.getElementById('score');
+    const timerDisplay = document.getElementById('timer');
+    const restartBtn = document.getElementById('restart-btn');
+    const hintBtn = document.getElementById('hint-btn');
+    const gameOverModal = document.getElementById('game-over-modal');
+    const successModal = document.getElementById('success-modal');
+    const gameOverTitle = document.getElementById('game-over-title');
+    const gameOverMessage = document.getElementById('game-over-message');
+    const gameOverIcon = document.getElementById('game-over-icon');
+    const finalScore = document.getElementById('final-score').querySelector('span');
+    const successScore = document.getElementById('success-score').querySelector('span');
+    const playAgainBtn = document.getElementById('play-again-btn');
+    const shareBtn = document.getElementById('share-btn');
+    const playAgainSuccessBtn = document.getElementById('play-again-success-btn');
+    const shareSuccessBtn = document.getElementById('share-success-btn');
+    
+    // 初始化游戏
+    function initGame() {
+      // 重置游戏状态
+      gameState.cards = [];
+      gameState.collection = [];
+      gameState.score = 0;
+      gameState.timeLeft = gameConfig.timeLimit;
+      gameState.isGameOver = false;
+      gameState.lastHintTime = 0;
+      
+      // 更新UI
+      scoreDisplay.textContent = gameState.score;
+      const minutes = Math.floor(gameState.timeLeft / 60);
+      const seconds = gameState.timeLeft % 60;
+      timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      gameGrid.innerHTML = '';
+      collectionSlot.innerHTML = '';
+      
+      // 创建卡片
+      createCards();
+      
+      // 开始计时器
+      startTimer();
+      
+      // 隐藏弹窗
+      gameOverModal.classList.add('hidden');
+      successModal.classList.add('hidden');
+    }
+    
+    // 创建卡片
+    function createCards() {
+      // 创建卡片数据
+      const totalCards = gameConfig.gridSize * gameConfig.gridSize;
+      const cardsNeeded = gameConfig.cardTypes * gameConfig.cardsPerType;
+      
+      // 确保有足够的卡片
+      if (cardsNeeded > totalCards) {
+        console.error('卡片数量不足');
+        return;
+      }
+      
+      // 创建卡片数组
+      let cardData = [];
+      
+      // 添加卡片类型
+      for (let i = 0; i < gameConfig.cardTypes; i++) {
+        for (let j = 0; j < gameConfig.cardsPerType; j++) {
+          cardData.push({
+            id: i,
+            image: cardImages[i],
+            isVisible: true,
+            isSelectable: true,
+          });
+        }
+      }
+      
+      // 随机排序卡片
+      cardData = shuffleArray(cardData);
+      
+      // 创建DOM元素
+      cardData.forEach((card, index) => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'card card-shadow card-hover bg-card';
+        cardElement.dataset.index = index;
+        cardElement.dataset.id = card.id;
+        
+        const imgElement = document.createElement('img');
+        imgElement.src = card.image;
+        imgElement.alt = `小熊${card.id + 1}`;
+        
+        cardElement.appendChild(imgElement);
+        cardElement.addEventListener('click', () => handleCardClick(index));
+        
+        gameGrid.appendChild(cardElement);
+        gameState.cards.push(card);
+      });
+    }
+    
+    // 处理卡片点击
+    function handleCardClick(index) {
+      // 检查游戏是否结束
+      if (gameState.isGameOver) return;
+      
+      const card = gameState.cards[index];
+      
+      // 检查卡片是否可选择
+      if (!card.isVisible || !card.isSelectable) return;
+      
+      // 检查收集槽是否已满
+      if (gameState.collection.length >= gameConfig.collectionLimit) {
+        showToast('收集槽已满！请先消除一些卡片。');
+        return;
+      }
+      
+      // 添加到收集槽
+      gameState.collection.push({
+        id: card.id,
+        image: card.image,
+        originalIndex: index,
+      });
+      
+      // 更新卡片状态
+      card.isVisible = false;
+      card.isSelectable = false;
+      
+      // 更新UI
+      const cardElement = gameGrid.children[index];
+      cardElement.classList.add('opacity-0', 'pointer-events-none');
+      
+      // 更新收集槽
+      updateCollectionSlot();
+      
+      // 检查是否有三个相同的卡片
+      checkForMatches();
+      
+      // 检查游戏是否通关
+      checkForWin();
+    }
+    
+    // 更新收集槽
+    function updateCollectionSlot() {
+      collectionSlot.innerHTML = '';
+      
+      gameState.collection.forEach((card, index) => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'card card-shadow bg-card';
+        cardElement.dataset.index = index;
+        
+        const imgElement = document.createElement('img');
+        imgElement.src = card.image;
+        imgElement.alt = `小熊${card.id + 1}`;
+        
+        cardElement.appendChild(imgElement);
+        collectionSlot.appendChild(cardElement);
+      });
+    }
+    
+    // 检查是否有三个相同的卡片
+    function checkForMatches() {
+      if (gameState.collection.length < 3) return;
+      
+      // 按ID分组
+      const groups = {};
+      
+      gameState.collection.forEach((card, index) => {
+        if (!groups[card.id]) {
+          groups[card.id] = [];
+        }
+        groups[card.id].push(index);
+      });
+      
+      // 检查是否有三个相同的
+      for (const id in groups) {
+        if (groups[id].length >= 3) {
+          // 消除这三张卡片
+          const indicesToRemove = groups[id].slice(0, 3);
+          
+          // 更新分数
+          gameState.score += 100;
+          scoreDisplay.textContent = gameState.score;
+          
+          // 从收集槽中移除
+          indicesToRemove.sort((a, b) => b - a).forEach(index => {
+            gameState.collection.splice(index, 1);
+          });
+          
+          // 显示消除动画
+          showMatchAnimation();
+          
+          // 更新收集槽
+          updateCollectionSlot();
+          
+          // 递归检查是否还有其他匹配
+          setTimeout(() => checkForMatches(), 300);
+          
+          break;
+        }
+      }
+    }
+    
+    // 显示匹配动画
+    function showMatchAnimation() {
+      collectionSlot.classList.add('bg-green-100');
+      setTimeout(() => {
+        collectionSlot.classList.remove('bg-green-100');
+      }, 300);
+      
+      // 播放匹配音效（如果有）
+      // playMatchSound();
+    }
+    
+    // 检查游戏是否通关
+    function checkForWin() {
+      // 检查是否所有卡片都被收集
+      const allCardsCollected = gameState.cards.every(card => !card.isVisible);
+      
+      if (allCardsCollected) {
+        // 游戏通关
+        gameWin();
+      }
+    }
+    
+    // 游戏通关
+    function gameWin() {
+      gameState.isGameOver = true;
+      clearInterval(gameState.timer);
+      
+      // 更新通关弹窗
+      successScore.textContent = gameState.score;
+      
+      // 显示通关弹窗
+      successModal.classList.remove('hidden');
+    }
+    
+    // 游戏结束
+    function gameOver() {
+      gameState.isGameOver = true;
+      clearInterval(gameState.timer);
+      
+      // 更新游戏结束弹窗
+      finalScore.textContent = gameState.score;
+      
+      // 显示游戏结束弹窗
+      gameOverModal.classList.remove('hidden');
+    }
+    
+    // 开始计时器
+    function startTimer() {
+      gameState.timer = setInterval(() => {
+        gameState.timeLeft--;
+        const minutes = Math.floor(gameState.timeLeft / 60);
+        const seconds = gameState.timeLeft % 60;
+        timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        // 时间到，游戏结束
+        if (gameState.timeLeft <= 0) {
+          gameOver();
+        }
+      }, 1000);
+    }
+    
+    // 获取提示
+    function getHint() {
+      // 检查冷却时间
+      const now = Date.now();
+      if (now - gameState.lastHintTime < gameConfig.hintCooldown * 1000) {
+        showToast(`提示冷却中，请${Math.ceil((gameConfig.hintCooldown * 1000 - (now - gameState.lastHintTime)) / 1000)}秒后再试`);
+        return;
+      }
+      
+      // 更新上次提示时间
+      gameState.lastHintTime = now;
+      
+      // 查找可匹配的卡片
+      const visibleCards = gameState.cards.filter(card => card.isVisible);
+      
+      if (visibleCards.length === 0) {
+        showToast('没有可提示的卡片了！');
+        return;
+      }
+      
+      // 随机选择一张卡片
+      const randomCard = visibleCards[Math.floor(Math.random() * visibleCards.length)];
+      const cardIndex = gameState.cards.indexOf(randomCard);
+      
+      // 高亮提示卡片
+      const cardElement = gameGrid.children[cardIndex];
+      cardElement.classList.add('ring-4', 'ring-yellow-400', 'animate-pulse-fast');
+      
+      setTimeout(() => {
+        cardElement.classList.remove('ring-4', 'ring-yellow-400', 'animate-pulse-fast');
+      }, 2000);
+      
+      // 消耗分数
+      gameState.score = Math.max(0, gameState.score - 10);
+      scoreDisplay.textContent = gameState.score;
+      
+      showToast('提示已使用，消耗10分');
+    }
+    
+    // 显示提示信息
+    function showToast(message) {
+      // 创建提示元素
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      toast.textContent = message;
+      
+      // 添加到页面
+      document.body.appendChild(toast);
+      
+      // 2秒后移除
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+        setTimeout(() => {
+          document.body.removeChild(toast);
+        }, 300);
+      }, 2000);
+    }
+    
+    // 随机排序数组
+    function shuffleArray(array) {
+      const newArray = [...array];
+      for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+      }
+      return newArray;
+    }
+    
+    // 分享成绩
+    function shareScore() {
+      const score = gameState.score;
+      const message = `我在"熊了个熊"游戏中获得了${score}分！快来挑战我吧！`;
+      
+      // 检查是否支持Web Share API
+      if (navigator.share) {
+        navigator.share({
+          title: '熊了个熊',
+          text: message,
+          url: window.location.href,
+        }).catch(err => {
+          console.error('分享失败:', err);
+          // 降级到复制到剪贴板
+          copyToClipboard(message);
+        });
+      } else {
+        // 复制到剪贴板
+        copyToClipboard(message);
+      }
+    }
+    
+    // 复制到剪贴板
+    function copyToClipboard(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      
+      showToast('成绩已复制到剪贴板！');
+    }
+    
+    // 事件监听
+    restartBtn.addEventListener('click', initGame);
+    hintBtn.addEventListener('click', getHint);
+    playAgainBtn.addEventListener('click', initGame);
+    shareBtn.addEventListener('click', shareScore);
+    playAgainSuccessBtn.addEventListener('click', initGame);
+    shareSuccessBtn.addEventListener('click', shareScore);
+    
+    // 初始化游戏
+    initGame();
+  </script>
+</body>
+</html>
